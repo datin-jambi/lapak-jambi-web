@@ -1,0 +1,68 @@
+import type { Testimonial } from '@/types';
+
+export const testimonials: Testimonial[] = [
+  {
+    id: 'test-001',
+    userName: 'Andi Firmansyah',
+    userAvatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Andi%20Firmansyah',
+    userRole: 'Ketua RT 05 Kelurahan Pasar Jambi',
+    content: 'Saya sangat terbantu dengan adanya aplikasi Lapak Jambi. Untuk acara 17 Agustus kemarin, saya bisa dengan mudah meminjam sound system dan tenda tanpa harus bolak-balik ke kantor pemerintahan. Prosesnya cepat dan transparan.',
+    rating: 5,
+  },
+  {
+    id: 'test-002',
+    userName: 'Sari Dewi',
+    userAvatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Sari%20Dewi',
+    userRole: 'Pengelola UMKM Batik Jambi',
+    content: 'Senang sekali dengan layanan Lapak Jambi. Saya bisa menyewa Aula BPKPD untuk pelatihan membatik dengan harga yang terjangkau. Fasilitasnya lengkap dan nyaman. Semoga ke depannya makin banyak aset yang bisa disewa.',
+    rating: 5,
+  },
+  {
+    id: 'test-003',
+    userName: 'Bayu Nugroho',
+    userAvatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Bayu%20Nugroho',
+    userRole: 'Guru SMA Negeri 3 Jambi',
+    content: 'Aplikasi ini memudahkan kami dalam merencanakan study tour siswa ke Candi Muaro Jambi. Tiket bisa dipesan online, tidak perlu antri di lokasi. Pembayarannya juga mudah melalui transfer bank.',
+    rating: 4,
+  },
+  {
+    id: 'test-004',
+    userName: 'Indah Permata Sari',
+    userAvatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Indah%20Permata%20Sari',
+    userRole: 'Anggota Komunitas Lari Jambi',
+    content: 'GOR Pattimura jadi langganan kami untuk latihan bulu tangkis mingguan. Dengan Lapak Jambi, booking lapangan jadi lebih mudah dan pasti dapat jadwal. Sistemnya bagus, tidak ada double booking.',
+    rating: 4,
+  },
+  {
+    id: 'test-005',
+    userName: 'Nurul Hasanah',
+    userAvatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Nurul%20Hasanah',
+    userRole: 'Ibu Rumah Tangga',
+    content: 'Berkat Lapak Jambi, acara pernikahan anak saya di Pendopo Rumah Dinas Gubernur berjalan lancar. Proses pemesanannya mudah dan petugasnya sangat membantu. Tempatnya memang cocok untuk acara spesial.',
+    rating: 5,
+  },
+  {
+    id: 'test-006',
+    userName: 'Fajar Setiawan',
+    userAvatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Fajar%20Setiawan',
+    userRole: 'Mahasiswa Universitas Jambi',
+    content: 'Lapak Jambi membantu saya sebagai ketua panitia seminar fakultas. Kami bisa menyewa Aula BPKPD dengan harga mahasiswa yang terjangkau. Fasilitas proyektor dan sound system-nya bagus.',
+    rating: 4,
+  },
+  {
+    id: 'test-007',
+    userName: 'Rina Hidayat',
+    userAvatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Rina%20Hidayat',
+    userRole: 'Pegawai Dinas Kesehatan Provinsi Jambi',
+    content: 'Sebagai pegawai pemerintahan, saya sering perlu memesan ruang rapat untuk koordinasi. Lapak Jambi sangat memudahkan pekerjaan saya. Tinggal buka aplikasi, pilih ruang, dan jadwal langsung terkonfirmasi.',
+    rating: 5,
+  },
+  {
+    id: 'test-008',
+    userName: 'Dimas Ardiansyah',
+    userAvatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Dimas%20Ardiansyah',
+    userRole: 'Pelatih PS Jambi Muda',
+    content: 'Sewa Stadion Tri Lomba Juang untuk latihan tim jadi lebih teratur dengan Lapak Jambi. Jadwal jelas dan harga sewa masih sangat wajar. Semoga ke depan ada paket berlangganan untuk klub olahraga.',
+    rating: 4,
+  },
+];
