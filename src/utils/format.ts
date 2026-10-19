@@ -106,3 +106,22 @@ export function getStatusLabel(status: string): string {
   };
   return labels[status] || status;
 }
+
+export function formatPricingUnit(unit?: string | null): string {
+  if (!unit) return 'hari';
+  const unitMap: Record<string, string> = {
+    SESSION: 'sesi',
+    HOUR: 'jam',
+    DAY: 'hari',
+    NIGHT: 'malam',
+    MONTH: 'bulan',
+    YEAR: 'tahun',
+    PERSON: 'orang',
+    UNIT: 'unit',
+    M2: 'm²',
+    TEST: 'uji/sampel',
+    TRIP: 'trip',
+  };
+  return unitMap[unit.toUpperCase()] || unit.toLowerCase();
+}
+

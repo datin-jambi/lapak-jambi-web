@@ -14,3 +14,5 @@ export { AvatarWithName } from "./AvatarWithName"
 export { ImageGallery } from "./ImageGallery"
 export { Rating } from "./Rating"
 export { BreadcrumbNav } from "./BreadcrumbNav"
+export { CategoryIcon } from "./CategoryIcon"
+

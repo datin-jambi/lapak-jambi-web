@@ -9,8 +9,8 @@ Dokumen ini memuat **tahapan pengerjaan (pipeline)**, status terkini, dan pandua
 | Fase | Nama Fitur / Modul | Status | Fokus Utama |
 | :---: | :--- | :---: | :--- |
 | **0** | **Fondasi Proyek & API Client** | **SELESAI (Completed)** | `.env`, `api-client.ts`, `src/types/api.ts`, `services/api/*`, pembersihan CMS lama |
-| **1** | **Autentikasi & Profil Pengguna** | **SIAP DIKERJAKAN (Next)** | Login warga, register publik, integrasi `AuthProvider`, profil akun |
-| **2** | **Katalog Produk, Kategori & Pencarian** | **SIAP DIKERJAKAN** | Beranda, chip kategori, filter dinamis, search aset/layanan |
+| **1** | **Autentikasi & Profil Pengguna** | **MENUNGGU (Queued)** | Login warga, register publik, integrasi `AuthProvider`, profil akun |
+| **2** | **Katalog Produk, Kategori & Pencarian** | **SELESAI (Completed)** | Beranda, chip kategori API, filter dinamis, search aset/layanan |
 | **3** | **Detail Aset & Kalender Ketersediaan (Traveloka Style)** | **MENUNGGU (Queued)** | Detail produk, tarif retribusi, kalender jadwal booking, hold slot |
 | **4** | **Keranjang Multi-OPD & Checkout Pesanan** | **MENUNGGU (Queued)** | Keranjang per OPD, penyesuaian tarif/qty, checkout quotation |
 | **5** | **Pembayaran & Upload Bukti Transfer** | **MENUNGGU (Queued)** | Rincian transfer bank, upload bukti via ImageKit, status order |
