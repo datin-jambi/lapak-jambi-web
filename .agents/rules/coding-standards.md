@@ -6,16 +6,13 @@ Dokumen ini memuat standar penulisan kode, arsitektur modul, dan konvensi TypeSc
 
 ## 1. Konvensi Next.js 16 App Router
 
-### A. Pembagian Server Component & Client Component
-- **Gunakan Server Component secara default** untuk:
-  - Halaman katalog publik, artikel berita, informasi OPD, dan profil statis.
-  - Pengambilan data awal untuk keperluan SEO dan kecepatan render halaman awal (*First Contentful Paint*).
-- **Gunakan Client Component (`'use client'`) hanya ketika**:
-  - Terdapat state interaktif (`useState`, `useReducer`).
-  - Menggunakan lifecycle hook (`useEffect`).
-  - Membutuhkan event handler (`onClick`, `onChange`, `onSubmit`).
-  - Menggunakan browser API (localStorage, geolocation, window).
-  - Menggunakan context provider (`useAuth`, `useCart`).
+### A. Prioritas Client-Side Fetching (Client-First Data Fetching)
+- **PRIORITASKAN FETCHING DATA DI SISI CLIENT (`'use client'`)**:
+  - Semua pemanggilan API backend (`productsApi`, `categoriesApi`, `authApi`, `cartsApi`, dll.) diprioritaskan dieksekusi di sisi client menggunakan React lifecycle (`useEffect`, `useState`, atau custom hooks).
+  - Client component mengelola state loading (skeleton), success, empty state, dan error toast/alert secara mandiri dan interaktif.
+- **Fungsi Next.js Utama: SEO, Metadata & Routing**:
+  - Next.js difokuskan untuk optimasi SEO (`metadata` statis, `generateMetadata` untuk tag `title` & `description` pada halaman publik/detail), font optimization, image optimization, dan layout routing.
+  - Server-side data fetching (`async Server Component`) **hanya digunakan seperlunya saja** ketika crawler SEO benar-benar membutuhkan data statis di awal. Selebihnya, seluruh pengalaman interaktif pengguna berada di Client Component.
 
 ### B. Route Grouping yang Tepat
 - `(public)`: Halaman yang dapat diakses publik tanpa login (`/`, `/aset`, `/berita`, `/kontak`).

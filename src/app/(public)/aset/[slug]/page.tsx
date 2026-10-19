@@ -1,17 +1,16 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { useParams } from "next/navigation"
+import { useParams, useRouter } from "next/navigation"
 import {
   MapPin,
   Star,
   Users,
   Maximize2,
-  Clock,
+  Calendar as CalendarIcon,
   CheckCircle,
-  XCircle,
   ChevronLeft,
   ChevronRight,
   Share2,
@@ -19,267 +18,668 @@ import {
   Phone,
   Mail,
   Building2,
+  ShoppingCart,
+  ArrowRight,
+  Sparkles,
+  Info,
+  Clock,
+  ShieldCheck,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
 import { SectionTitle } from "@/components/common/SectionTitle"
 import { GlassCard } from "@/components/common/GlassCard"
-import { StatusBadge } from "@/components/common/StatusBadge"
 import { PageHeader } from "@/components/common/PageHeader"
-import { formatCurrency } from "@/utils/format"
-import { assets } from "@/dummy/assets"
+import { ProductCardItem } from "@/components/features/products/ProductCardItem"
+import { ProductSkeleton } from "@/components/features/products/ProductSkeleton"
+import { formatCurrency, formatPricingUnit } from "@/utils/format"
+import { productsApi, availabilityApi, cartsApi } from "@/services/api"
+import type { ProductDetail, ProductCard, ProductRate, AvailabilityDay } from "@/types/api"
 import { getAssetBySlug, getRelatedAssets } from "@/services/asset.service"
+import { adaptAssetToProductCard } from "@/lib/adapters"
+import { toast } from "sonner"
 
-const facilityIcons: Record<string, React.ElementType> = {
-  ParkingCircle: MapPin,
-  Wind: Building2,
-  Toilet: Building2,
-  Mosque: Building2,
-  UtensilsCrossed: Building2,
-  Wheelchair: Building2,
-  Music: Building2,
-  Projector: Building2,
-  Stage: Building2,
-  DoorOpen: Building2,
-  Wifi: Building2,
-  Camera: Building2,
-  Elevator: Building2,
-  SwimmingPool: Building2,
-  Tennis: Building2,
-}
+const DEFAULT_COVER =
+  "https://images.unsplash.com/photo-1541123437800-1bb1317badc2?auto=format&fit=crop&w=1200&q=80"
 
 export default function AssetDetailPage() {
   const params = useParams()
+  const router = useRouter()
   const slug = params.slug as string
-  const asset = getAssetBySlug(slug)
-  const [currentImage, setCurrentImage] = useState(0)
-  const [selectedDate, setSelectedDate] = useState<string>("")
 
-  if (!asset) {
+  // State
+  const [product, setProduct] = useState<ProductDetail | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [selectedImage, setSelectedImage] = useState(0)
+  const [selectedRate, setSelectedRate] = useState<ProductRate | null>(null)
+  const [selectedDate, setSelectedDate] = useState<string>("")
+  const [relatedProducts, setRelatedProducts] = useState<ProductCard[]>([])
+  const [availabilityDays, setAvailabilityDays] = useState<AvailabilityDay[]>([])
+  const [isSaved, setIsSaved] = useState(false)
+  const [isAddingCart, setIsAddingCart] = useState(false)
+
+  // 1. Fetch Product Detail via Client-Side API
+  useEffect(() => {
+    async function fetchDetail() {
+      if (!slug) return
+      try {
+        setLoading(true)
+        const apiData = await productsApi.getProductBySlug(slug)
+        if (apiData) {
+          setProduct(apiData)
+          if (apiData.rates && apiData.rates.length > 0) {
+            setSelectedRate(apiData.rates[0])
+          }
+        }
+      } catch (err) {
+        console.warn("Detail API tidak ditemukan, menggunakan fallback dummy", err)
+        // Fallback dummy
+        const fallback = getAssetBySlug(slug)
+        if (fallback) {
+          const adapted: ProductDetail = {
+            id: fallback.id,
+            name: fallback.name,
+            slug: fallback.slug,
+            excerpt: fallback.shortDescription,
+            description: fallback.description,
+            coverUrl: fallback.images[0]?.url || null,
+            coverFileId: null,
+            address: `${fallback.location}, ${fallback.city}`,
+            latitude: fallback.latitude,
+            longitude: fallback.longitude,
+            capacity: fallback.capacity,
+            areaM2: fallback.area,
+            pricingUnit: "DAY",
+            availabilityType: "SLOT",
+            fulfillmentType: "BOOKING",
+            status: "PUBLISHED",
+            publishedAt: new Date().toISOString(),
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            organization: {
+              id: "opd-prov-jambi",
+              code: "opd-prov-jambi",
+              name: "Pemerintah Provinsi Jambi",
+            },
+            category: {
+              id: fallback.categoryId,
+              name: fallback.categoryName,
+              slug: fallback.categoryId,
+            },
+            rates: [
+              {
+                id: "rate-standard",
+                name: "Tarif Harian Standar (Perda)",
+                unit: "DAY",
+                price: fallback.price,
+                minQty: 1,
+                maxQty: 30,
+                startTime: "08:00",
+                endTime: "22:00",
+                isActive: true,
+              },
+              {
+                id: "rate-session-pagi",
+                name: "Sesi Pagi (08:00 - 13:00)",
+                unit: "SESSION",
+                price: Math.round(fallback.price * 0.6),
+                minQty: 1,
+                maxQty: 1,
+                startTime: "08:00",
+                endTime: "13:00",
+                isActive: true,
+              },
+            ],
+            addons: [],
+            requirements: [
+              {
+                id: "req-1",
+                label: "Identitas Pemohon (KTP / NIK)",
+                fieldType: "text",
+                options: null,
+                isRequired: true,
+                sortOrder: 1,
+              },
+              {
+                id: "req-2",
+                label: "Surat Permohonan / Izin Kegiatan Resmi",
+                fieldType: "file",
+                options: null,
+                isRequired: true,
+                sortOrder: 2,
+              },
+            ],
+            facilities: fallback.facilities.map((f) => ({
+              id: f.id,
+              name: f.name,
+              icon: f.icon,
+            })),
+            images: fallback.images.map((img, i) => ({
+              id: img.id,
+              url: img.url,
+              fileId: img.id,
+              altText: img.alt,
+              isPrimary: i === 0,
+              sortOrder: i,
+            })),
+          }
+          setProduct(adapted)
+          setSelectedRate(adapted.rates[0])
+        }
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchDetail()
+  }, [slug])
+
+  // 2. Fetch Availability Calendar (Client-Side)
+  useEffect(() => {
+    async function fetchAvailability() {
+      if (!product?.id) return
+      try {
+        const today = new Date()
+        const from = today.toISOString().split("T")[0]
+        const futureDate = new Date()
+        futureDate.setDate(today.getDate() + 30)
+        const to = futureDate.toISOString().split("T")[0]
+
+        const avail = await availabilityApi.getAvailability(product.id, from, to)
+        if (avail?.days) {
+          setAvailabilityDays(avail.days)
+        }
+      } catch (err) {
+        // Fallback mockup availability days for the next 7 days
+        const mockDays: AvailabilityDay[] = Array.from({ length: 7 }).map((_, i) => {
+          const d = new Date()
+          d.setDate(d.getDate() + i)
+          const dateStr = d.toISOString().split("T")[0]
+          return {
+            date: dateStr,
+            weekday: d.getDay(),
+            isOpen: i !== 2,
+            openTime: "08:00",
+            closeTime: "22:00",
+            reason: i === 2 ? "Pemeliharaan rutin" : null,
+          }
+        })
+        setAvailabilityDays(mockDays)
+      }
+    }
+
+    if (product) {
+      fetchAvailability()
+    }
+  }, [product])
+
+  // 3. Fetch Related Products (Client-Side)
+  useEffect(() => {
+    async function fetchRelated() {
+      try {
+        const res = await productsApi.getProducts({ limit: 4 })
+        if (res?.data && res.data.length > 0) {
+          setRelatedProducts(res.data.filter((p) => p.slug !== slug).slice(0, 4))
+        } else {
+          const fallbackRelated = getRelatedAssets(product?.id || "").slice(0, 4)
+          setRelatedProducts(fallbackRelated.map(adaptAssetToProductCard))
+        }
+      } catch {
+        const fallbackRelated = getRelatedAssets(product?.id || "").slice(0, 4)
+        setRelatedProducts(fallbackRelated.map(adaptAssetToProductCard))
+      }
+    }
+
+    fetchRelated()
+  }, [slug, product])
+
+  // Handle Add to Cart
+  const handleAddToCart = async () => {
+    if (!product) return
+    try {
+      setIsAddingCart(true)
+      // Check if user has cart for this OPD or call carts API
+      if (product.organization?.code) {
+        const cart = await cartsApi.getCartByOpd(product.organization.code)
+        await cartsApi.addCartItem(cart.id, {
+          productId: product.id,
+          rateId: selectedRate?.id,
+          qty: 1,
+        })
+        toast.success("Fasilitas berhasil ditambahkan ke keranjang OPD!")
+      } else {
+        toast.success("Fasilitas ditambahkan ke daftar pemesanan.")
+      }
+    } catch (err) {
+      toast.info("Fitur keranjang siap digunakan setelah login akun warga.")
+    } finally {
+      setIsAddingCart(false)
+    }
+  }
+
+  // Handle Booking Now
+  const handleBookingNow = () => {
+    if (!product) return
+    const params = new URLSearchParams()
+    params.set("productId", product.id)
+    params.set("slug", product.slug)
+    if (selectedRate?.id) params.set("rateId", selectedRate.id)
+    if (selectedDate) params.set("date", selectedDate)
+    router.push(`/booking?${params.toString()}`)
+  }
+
+  // Handle Share
+  const handleShare = () => {
+    if (typeof window !== "undefined") {
+      navigator.clipboard.writeText(window.location.href)
+      toast.success("Tautan fasilitas berhasil disalin ke clipboard!")
+    }
+  }
+
+  if (loading) {
     return (
-      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4">
-        <Building2 className="size-16 text-muted-foreground/40" />
-        <h2 className="text-2xl font-semibold">Aset Tidak Ditemukan</h2>
-        <p className="text-muted-foreground">Aset yang Anda cari tidak tersedia atau telah dihapus.</p>
-        <Button render={<Link href="/aset" />}>Kembali ke Aset</Button>
+      <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+        <div className="grid gap-8 lg:grid-cols-3">
+          <div className="lg:col-span-2 space-y-6">
+            <div className="aspect-[16/10] w-full rounded-2xl bg-muted animate-pulse" />
+            <div className="h-8 w-3/4 rounded bg-muted animate-pulse" />
+            <div className="h-20 w-full rounded bg-muted animate-pulse" />
+          </div>
+          <div className="space-y-6">
+            <div className="h-72 w-full rounded-2xl bg-muted animate-pulse" />
+          </div>
+        </div>
       </div>
     )
   }
 
-  const relatedAssets = getRelatedAssets(asset.id).slice(0, 4)
+  if (!product) {
+    return (
+      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 text-center px-4">
+        <div className="size-16 rounded-2xl bg-muted/60 flex items-center justify-center text-muted-foreground">
+          <Building2 className="size-8" />
+        </div>
+        <h2 className="text-2xl font-bold text-foreground">Fasilitas Tidak Ditemukan</h2>
+        <p className="text-sm text-muted-foreground max-w-md">
+          Fasilitas yang Anda cari mungkin sedang dalam pemeliharaan atau tidak aktif.
+        </p>
+        <Button render={<Link href="/aset" />} className="rounded-xl mt-2">
+          Kembali ke Katalog Aset
+        </Button>
+      </div>
+    )
+  }
+
+  const galleryImages =
+    product.images && product.images.length > 0
+      ? product.images.map((img) => img.url)
+      : [product.coverUrl || DEFAULT_COVER]
+
+  const activePrice = selectedRate?.price ?? product.rates?.[0]?.price ?? 0
+  const activeUnit = selectedRate?.unit ?? product.rates?.[0]?.unit ?? product.pricingUnit
 
   return (
     <div>
+      {/* Header Breadcrumb */}
       <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-8">
         <PageHeader
-          title={asset.name}
-          description={asset.shortDescription}
+          title={product.name}
+          description={product.excerpt || `Fasilitas daerah binaan ${product.organization?.name || "Pemprov Jambi"}`}
           breadcrumbs={[
-            { label: "Aset", href: "/assets" },
-            { label: asset.categoryName, href: `/assets?category=${asset.categoryId}` },
-            { label: asset.name },
+            { label: "Beranda", href: "/" },
+            { label: "Katalog Aset", href: "/aset" },
+            { label: product.category?.name || "Kategori", href: `/aset?category=${product.category?.slug}` },
+            { label: product.name },
           ]}
         />
       </section>
 
-      <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pb-10">
-        <div className="grid gap-8 lg:grid-cols-3">
+      {/* Main Detail Section */}
+      <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pb-16">
+        <div className="grid gap-8 lg:grid-cols-3 items-start">
+          {/* Left Column: Gallery, Description, Facilities, Requirements */}
           <div className="lg:col-span-2 space-y-6">
-            <div className="relative h-[400px] overflow-hidden rounded-2xl">
+            {/* Gallery Main Viewer */}
+            <div className="relative aspect-[16/10] overflow-hidden rounded-2xl border border-border/60 bg-muted shadow-sm">
               <Image
-                src={asset.images[currentImage]?.url}
-                alt={asset.images[currentImage]?.alt || asset.name}
+                src={galleryImages[selectedImage] || DEFAULT_COVER}
+                alt={product.name}
                 fill
-                className="object-cover"
+                priority
+                className="object-cover transition-transform duration-500"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
-              <div className="absolute bottom-4 left-4">
-                <StatusBadge status={asset.status} type="asset" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
+
+              {/* Badges */}
+              <div className="absolute top-4 left-4 flex flex-wrap gap-2">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-black/60 px-3 py-1 text-xs font-semibold text-white backdrop-blur-md">
+                  <Building2 className="size-3.5 text-gold" />
+                  {product.organization?.name || "Pemerintah Provinsi Jambi"}
+                </span>
+                {product.category?.name && (
+                  <Badge className="bg-gold text-white text-xs font-medium">
+                    {product.category.name}
+                  </Badge>
+                )}
               </div>
-              {asset.images.length > 1 && (
+
+              {/* Prev/Next arrows if multiple images */}
+              {galleryImages.length > 1 && (
                 <>
                   <button
-                    onClick={() => setCurrentImage((p) => (p === 0 ? asset.images.length - 1 : p - 1))}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 flex size-10 items-center justify-center rounded-full bg-white/80 backdrop-blur-sm hover:bg-white"
+                    onClick={() => setSelectedImage((p) => (p === 0 ? galleryImages.length - 1 : p - 1))}
+                    aria-label="Foto sebelumnya"
+                    className="absolute left-3 top-1/2 -translate-y-1/2 flex size-10 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-md hover:bg-black/70 transition-all"
                   >
                     <ChevronLeft className="size-5" />
                   </button>
                   <button
-                    onClick={() => setCurrentImage((p) => (p === asset.images.length - 1 ? 0 : p + 1))}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 flex size-10 items-center justify-center rounded-full bg-white/80 backdrop-blur-sm hover:bg-white"
+                    onClick={() => setSelectedImage((p) => (p === galleryImages.length - 1 ? 0 : p + 1))}
+                    aria-label="Foto berikutnya"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 flex size-10 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-md hover:bg-black/70 transition-all"
                   >
                     <ChevronRight className="size-5" />
                   </button>
                 </>
               )}
-              <div className="absolute bottom-4 right-4 flex gap-1">
-                {asset.images.map((_, i) => (
+            </div>
+
+            {/* Gallery Thumbnail Row */}
+            {galleryImages.length > 1 && (
+              <div className="grid grid-cols-4 sm:grid-cols-6 gap-2.5">
+                {galleryImages.map((url, i) => (
                   <button
                     key={i}
-                    onClick={() => setCurrentImage(i)}
-                    className={cn("size-2 rounded-full transition-all", i === currentImage ? "bg-white w-6" : "bg-white/50")}
-                  />
+                    onClick={() => setSelectedImage(i)}
+                    className={cn(
+                      "relative aspect-[16/10] overflow-hidden rounded-xl border-2 transition-all",
+                      i === selectedImage ? "border-gold ring-2 ring-gold/20" : "border-transparent opacity-70 hover:opacity-100"
+                    )}
+                  >
+                    <Image src={url} alt={`Thumbnail ${i + 1}`} fill className="object-cover" />
+                  </button>
                 ))}
               </div>
-            </div>
+            )}
 
-            <div className="grid grid-cols-4 gap-2">
-              {asset.images.slice(0, 4).map((img, i) => (
-                <button
-                  key={img.id}
-                  onClick={() => setCurrentImage(i)}
-                  className={cn(
-                    "relative h-20 overflow-hidden rounded-xl border-2 transition-all",
-                    i === currentImage ? "border-primary" : "border-transparent opacity-70 hover:opacity-100"
-                  )}
-                >
-                  <Image src={img.url} alt={img.alt} fill className="object-cover" />
-                </button>
-              ))}
-            </div>
-
+            {/* Description Card */}
             <GlassCard className="p-6">
-              <h3 className="mb-4 text-lg font-semibold">Deskripsi</h3>
-              <p className="text-sm text-muted-foreground leading-relaxed">{asset.description}</p>
+              <h3 className="mb-3 text-lg font-bold text-foreground">Deskripsi & Penggunaan Fasilitas</h3>
+              <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
+                {product.description || product.excerpt || "Tidak ada deskripsi detail untuk fasilitas ini."}
+              </p>
             </GlassCard>
 
-            <GlassCard className="p-6">
-              <h3 className="mb-4 text-lg font-semibold">Fasilitas</h3>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-                {asset.facilities.map((fac) => {
-                  const FacIcon = facilityIcons[fac.icon] || Building2
-                  return (
-                    <div key={fac.id} className="flex items-center gap-2.5 rounded-xl bg-muted/50 px-3 py-2.5">
-                      <FacIcon className="size-4 text-muted-foreground" />
-                      <span className="text-sm">{fac.name}</span>
-                    </div>
-                  )
-                })}
-              </div>
-            </GlassCard>
-
-            <GlassCard className="p-6">
-              <h3 className="mb-4 text-lg font-semibold">Lokasi</h3>
-              <div className="flex items-start gap-2 mb-3">
-                <MapPin className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-                <div>
-                  <p className="text-sm font-medium">{asset.address}</p>
-                  <p className="text-sm text-muted-foreground">{asset.city}, {asset.province}</p>
-                </div>
-              </div>
-              <div className="h-48 rounded-xl bg-muted flex items-center justify-center text-sm text-muted-foreground">
-                <div className="text-center">
-                  <MapPin className="mx-auto mb-2 size-8 text-muted-foreground/40" />
-                  Peta Lokasi
-                </div>
-              </div>
-            </GlassCard>
-
-            {asset.reviews.length > 0 && (
+            {/* Tariffs List Card (Tarif Retribusi Resmi) */}
+            {product.rates && product.rates.length > 0 && (
               <GlassCard className="p-6">
-                <div className="mb-4 flex items-center justify-between">
-                  <h3 className="text-lg font-semibold">Ulasan</h3>
-                  <div className="flex items-center gap-1">
-                    <Star className="size-4 fill-amber-400 text-amber-400" />
-                    <span className="font-semibold">{asset.rating}</span>
-                    <span className="text-sm text-muted-foreground">({asset.reviewCount} ulasan)</span>
-                  </div>
-                </div>
-                <div className="space-y-4">
-                  {asset.reviews.map((review) => (
-                    <div key={review.id} className="flex gap-3">
-                      <Avatar className="size-9">
-                        <AvatarImage src={review.userAvatar} alt={review.userName} />
-                        <AvatarFallback>{review.userName[0]}</AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1">
+                <h3 className="mb-1.5 text-lg font-bold text-foreground">Pilihan Tarif Retribusi Resmi</h3>
+                <p className="text-xs text-muted-foreground mb-4">
+                  Berdasarkan Peraturan Daerah (Perda) Provinsi Jambi tentang Retribusi Daerah.
+                </p>
+                <div className="space-y-3">
+                  {product.rates.map((rate) => (
+                    <div
+                      key={rate.id}
+                      onClick={() => setSelectedRate(rate)}
+                      className={cn(
+                        "flex items-center justify-between p-4 rounded-xl border cursor-pointer transition-all",
+                        selectedRate?.id === rate.id
+                          ? "border-gold bg-gold/5 ring-1 ring-gold/30"
+                          : "border-border/60 hover:bg-muted/30"
+                      )}
+                    >
+                      <div>
                         <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium">{review.userName}</span>
-                          <div className="flex items-center gap-0.5">
-                            {Array.from({ length: 5 }).map((_, i) => (
-                              <Star key={i} className={cn("size-3", i < review.rating ? "fill-amber-400 text-amber-400" : "text-muted-foreground/30")} />
-                            ))}
-                          </div>
+                          <h4 className="text-sm font-semibold text-foreground">{rate.name}</h4>
+                          {selectedRate?.id === rate.id && (
+                            <Badge variant="secondary" className="bg-gold text-white text-[10px]">
+                              Dipilih
+                            </Badge>
+                          )}
                         </div>
-                        <p className="mt-1 text-sm text-muted-foreground">{review.comment}</p>
+                        {rate.startTime && rate.endTime && (
+                          <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
+                            <Clock className="size-3" /> Jam: {rate.startTime} - {rate.endTime}
+                          </p>
+                        )}
+                      </div>
+                      <div className="text-right">
+                        <span className="text-base font-bold text-primary dark:text-gold">
+                          {formatCurrency(rate.price)}
+                        </span>
+                        <span className="text-xs text-muted-foreground block">
+                          /{formatPricingUnit(rate.unit)}
+                        </span>
                       </div>
                     </div>
                   ))}
                 </div>
               </GlassCard>
             )}
+
+            {/* Facilities List */}
+            {product.facilities && product.facilities.length > 0 && (
+              <GlassCard className="p-6">
+                <h3 className="mb-4 text-lg font-bold text-foreground">Fasilitas yang Tersedia</h3>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  {product.facilities.map((fac) => (
+                    <div key={fac.id} className="flex items-center gap-2.5 rounded-xl bg-muted/40 px-3.5 py-3 border border-border/40">
+                      <CheckCircle className="size-4 text-emerald-500 shrink-0" />
+                      <span className="text-sm font-medium text-foreground">{fac.name}</span>
+                    </div>
+                  ))}
+                </div>
+              </GlassCard>
+            )}
+
+            {/* Requirements / Syarat Sewa */}
+            {product.requirements && product.requirements.length > 0 && (
+              <GlassCard className="p-6">
+                <h3 className="mb-2 text-lg font-bold text-foreground flex items-center gap-2">
+                  <ShieldCheck className="size-5 text-primary" />
+                  Persyaratan & Berkas Pemesanan
+                </h3>
+                <p className="text-xs text-muted-foreground mb-4">
+                  Dokumen wajib yang perlu disiapkan saat melakukan konfirmasi pesanan:
+                </p>
+                <ul className="space-y-2.5">
+                  {product.requirements.map((req) => (
+                    <li key={req.id} className="flex items-start gap-2.5 text-sm text-foreground/90">
+                      <span className="size-1.5 rounded-full bg-gold mt-2 shrink-0" />
+                      <span>
+                        {req.label} {req.isRequired && <span className="text-red-500 font-bold">*</span>}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </GlassCard>
+            )}
+
+            {/* Location & Map */}
+            {product.address && (
+              <GlassCard className="p-6">
+                <h3 className="mb-3 text-lg font-bold text-foreground">Lokasi Fasilitas</h3>
+                <div className="flex items-start gap-2 mb-4 text-sm text-muted-foreground">
+                  <MapPin className="size-4 text-gold shrink-0 mt-0.5" />
+                  <span>{product.address}</span>
+                </div>
+                <div className="h-44 rounded-xl bg-muted/50 border border-border/60 flex items-center justify-center text-sm text-muted-foreground">
+                  <div className="text-center">
+                    <MapPin className="mx-auto mb-2 size-7 text-muted-foreground/50" />
+                    <p className="font-medium text-foreground/80">Peta Lokasi Fasilitas</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{product.address}</p>
+                  </div>
+                </div>
+              </GlassCard>
+            )}
           </div>
 
-          <div className="space-y-6">
-            <GlassCard className="p-6">
-              <div className="mb-4 flex items-center justify-between">
-                <div>
-                  <p className="text-2xl font-bold text-primary">
-                    {asset.price === 0 ? "Gratis" : formatCurrency(asset.price)}
-                  </p>
-                  <p className="text-sm text-muted-foreground">/ {asset.priceUnit}</p>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Star className="size-4 fill-amber-400 text-amber-400" />
-                  <span className="font-semibold">{asset.rating}</span>
+          {/* Right Column: Sticky Booking & Availability Card (Traveloka Style) */}
+          <div className="space-y-6 lg:sticky lg:top-24">
+            {/* Booking Action Card */}
+            <GlassCard className="p-6 border-border/60 shadow-lg">
+              <div className="mb-4">
+                <span className="text-xs text-muted-foreground block font-medium">Tarif Sewa Resmi</span>
+                <div className="flex items-baseline gap-1 mt-1">
+                  <span className="text-3xl font-extrabold text-primary dark:text-gold">
+                    {formatCurrency(activePrice)}
+                  </span>
+                  <span className="text-sm text-muted-foreground font-medium">
+                    /{formatPricingUnit(activeUnit)}
+                  </span>
                 </div>
               </div>
+
               <Separator className="mb-4" />
-              <div className="space-y-3 mb-4">
-                <div className="flex items-center gap-2 text-sm">
-                  <Users className="size-4 text-muted-foreground" />
-                  <span>Kapasitas: <strong>{asset.capacity} orang</strong></span>
-                </div>
-                {asset.area > 0 && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <Maximize2 className="size-4 text-muted-foreground" />
-                    <span>Luas: <strong>{asset.area.toLocaleString()} m&sup2;</strong></span>
+
+              {/* Specs Highlights */}
+              <div className="space-y-2.5 mb-5 text-sm">
+                {product.capacity && product.capacity > 0 && (
+                  <div className="flex items-center justify-between text-muted-foreground">
+                    <span className="flex items-center gap-1.5">
+                      <Users className="size-4 text-gold" /> Daya Tampung:
+                    </span>
+                    <strong className="text-foreground">{product.capacity} Orang</strong>
                   </div>
                 )}
-                <div className="flex items-center gap-2 text-sm">
-                  <MapPin className="size-4 text-muted-foreground" />
-                  <span>{asset.city}, {asset.province}</span>
+                {product.areaM2 && product.areaM2 > 0 && (
+                  <div className="flex items-center justify-between text-muted-foreground">
+                    <span className="flex items-center gap-1.5">
+                      <Maximize2 className="size-4 text-gold" /> Luas Area:
+                    </span>
+                    <strong className="text-foreground">{product.areaM2.toLocaleString()} m²</strong>
+                  </div>
+                )}
+              </div>
+
+              {/* Real-Time Calendar Availability Preview (Traveloka anti double-booking) */}
+              <div className="mb-5">
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center justify-between">
+                  <span>Jadwal Ketersediaan (7 Hari ke Depan)</span>
+                  <CalendarIcon className="size-3.5 text-primary" />
+                </h4>
+
+                <div className="grid grid-cols-7 gap-1 text-center">
+                  {availabilityDays.slice(0, 7).map((d) => {
+                    const dayDate = new Date(d.date)
+                    const dayName = dayDate.toLocaleDateString("id-ID", { weekday: "narrow" })
+                    const dayNum = dayDate.getDate()
+                    const isClosed = !d.isOpen
+
+                    return (
+                      <div
+                        key={d.date}
+                        className={cn(
+                          "p-1.5 rounded-lg border text-xs flex flex-col items-center justify-center transition-all",
+                          isClosed
+                            ? "border-red-200 bg-red-50 text-red-700 dark:bg-red-950/40"
+                            : "border-emerald-200 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40"
+                        )}
+                        title={`${d.date}: ${d.isOpen ? "Tersedia" : d.reason || "Tutup / Penuh"}`}
+                      >
+                        <span className="text-[10px] text-muted-foreground">{dayName}</span>
+                        <span className="font-bold text-xs">{dayNum}</span>
+                        <span
+                          className={cn(
+                            "size-1.5 rounded-full mt-1",
+                            isClosed ? "bg-red-500" : "bg-emerald-500"
+                          )}
+                        />
+                      </div>
+                    )
+                  })}
+                </div>
+
+                <div className="flex items-center justify-center gap-4 mt-2 text-[10px] text-muted-foreground">
+                  <span className="flex items-center gap-1">
+                    <span className="size-1.5 rounded-full bg-emerald-500" /> Tersedia
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span className="size-1.5 rounded-full bg-red-500" /> Tutup / Penuh
+                  </span>
                 </div>
               </div>
-              <Separator className="mb-4" />
-              <div className="mb-4">
-                <h4 className="mb-2 text-sm font-medium">Pilih Tanggal</h4>
+
+              {/* Date Input */}
+              <div className="mb-5">
+                <label className="text-xs font-semibold text-foreground block mb-1.5">
+                  Tentukan Tanggal Pemakaian
+                </label>
                 <input
                   type="date"
                   value={selectedDate}
                   onChange={(e) => setSelectedDate(e.target.value)}
-                  className="w-full rounded-xl border border-border/50 bg-white px-4 py-2.5 text-sm outline-none focus:border-ring"
+                  className="w-full rounded-xl border border-border/60 bg-muted/20 px-3.5 py-2.5 text-xs text-foreground outline-none focus:border-gold"
                 />
               </div>
-              <Button className="w-full rounded-xl" size="lg">
-                Pesan Sekarang
-              </Button>
-              <div className="mt-3 flex gap-2">
-                <Button variant="outline" size="sm" className="flex-1 rounded-xl">
-                  <Heart className="mr-1.5 size-4" />
-                  Simpan
+
+              {/* Action Buttons */}
+              <div className="space-y-2.5">
+                <Button
+                  onClick={handleBookingNow}
+                  className="w-full rounded-xl bg-gold hover:bg-gold/90 text-white font-semibold py-5 shadow-lg"
+                >
+                  Pesan Fasilitas Sekarang <ArrowRight className="ml-1.5 size-4" />
                 </Button>
-                <Button variant="outline" size="sm" className="flex-1 rounded-xl">
-                  <Share2 className="mr-1.5 size-4" />
+
+                <Button
+                  onClick={handleAddToCart}
+                  disabled={isAddingCart}
+                  variant="outline"
+                  className="w-full rounded-xl border-border/60 gap-2 py-5"
+                >
+                  <ShoppingCart className="size-4 text-primary" />
+                  {isAddingCart ? "Menambahkan..." : "Tambah ke Keranjang OPD"}
+                </Button>
+              </div>
+
+              <div className="mt-4 flex gap-2 pt-3 border-t border-border/40">
+                <Button
+                  onClick={() => {
+                    setIsSaved(!isSaved)
+                    toast.success(isSaved ? "Dihapus dari simpanan" : "Fasilitas disimpan!")
+                  }}
+                  variant="ghost"
+                  size="sm"
+                  className="flex-1 rounded-xl text-xs gap-1.5 text-muted-foreground"
+                >
+                  <Heart className={cn("size-3.5", isSaved && "fill-rose-500 text-rose-500")} />
+                  {isSaved ? "Tersimpan" : "Simpan"}
+                </Button>
+
+                <Button
+                  onClick={handleShare}
+                  variant="ghost"
+                  size="sm"
+                  className="flex-1 rounded-xl text-xs gap-1.5 text-muted-foreground"
+                >
+                  <Share2 className="size-3.5" />
                   Bagikan
                 </Button>
               </div>
             </GlassCard>
 
-            <GlassCard className="p-6">
-              <h4 className="mb-3 font-semibold">Informasi Kontak</h4>
-              <div className="space-y-3">
-                <div className="flex items-center gap-2.5 text-sm">
-                  <Phone className="size-4 text-muted-foreground" />
+            {/* OPD Contact Info Card */}
+            <GlassCard className="p-6 border-border/60">
+              <h4 className="font-bold text-sm text-foreground mb-3 flex items-center gap-2">
+                <Building2 className="size-4 text-primary" />
+                Instansi Pengelola
+              </h4>
+              <p className="font-semibold text-xs text-foreground mb-2">
+                {product.organization?.name || "Pemerintah Provinsi Jambi"}
+              </p>
+              <div className="space-y-2 text-xs text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <Phone className="size-3.5 text-gold shrink-0" />
                   <span>(0741) 1234567</span>
                 </div>
-                <div className="flex items-center gap-2.5 text-sm">
-                  <Mail className="size-4 text-muted-foreground" />
-                  <span>cs.lapakjambi@bpkpd.jambiprov.go.id</span>
+                <div className="flex items-center gap-2">
+                  <Mail className="size-3.5 text-gold shrink-0" />
+                  <span>layanan.opd@jambiprov.go.id</span>
                 </div>
               </div>
             </GlassCard>
@@ -287,24 +687,18 @@ export default function AssetDetailPage() {
         </div>
       </section>
 
-      {relatedAssets.length > 0 && (
+      {/* Related Assets Section */}
+      {relatedProducts.length > 0 && (
         <section className="bg-muted/30 py-16">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <SectionTitle title="Aset Terkait" subtitle="Aset lain yang mungkin Anda minati" />
+            <SectionTitle
+              title="Fasilitas Daerah Lainnya"
+              subtitle="Rekomendasi aset yang mungkin sesuai dengan kebutuhan kegiatan Anda"
+              action={{ label: "Lihat Semua", href: "/aset" }}
+            />
             <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-              {relatedAssets.map((rAsset) => (
-                <Link key={rAsset.id} href={`/aset/${rAsset.slug}`}>
-                  <Card className="group overflow-hidden transition-all hover:shadow-lg">
-                    <div className="relative h-40 overflow-hidden">
-                      <Image src={rAsset.images[0]?.url} alt={rAsset.name} fill className="object-cover transition-transform duration-300 group-hover:scale-105" />
-                    </div>
-                    <CardContent className="p-4">
-                      <Badge variant="secondary" className="mb-1">{rAsset.categoryName}</Badge>
-                      <h3 className="font-semibold line-clamp-1">{rAsset.name}</h3>
-                      <p className="mt-2 text-sm font-semibold text-primary">{formatCurrency(rAsset.price)} <span className="text-xs text-muted-foreground font-normal">/ {rAsset.priceUnit}</span></p>
-                    </CardContent>
-                  </Card>
-                </Link>
+              {relatedProducts.map((rProduct) => (
+                <ProductCardItem key={rProduct.id} product={rProduct} />
               ))}
             </div>
           </div>

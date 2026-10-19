@@ -123,3 +123,10 @@ src/
 - Status 401 → auto-refresh token.
 - Status 400 (VALIDATION_ERROR) → tampilkan `details[].message` per field.
 - Status lain → tampilkan `message` ke user.
+
+### 8. Prioritas Client-Side Fetching & Peran Next.js
+- **Prioritaskan Client-Side Data Fetching (`'use client'`)**:
+  - Semua pemanggilan API backend (`productsApi`, `categoriesApi`, `cartsApi`, `authApi`, dll.) diprioritaskan dieksekusi di sisi client (`useEffect`, `useState`).
+  - Next.js digunakan terutama untuk **SEO** (static metadata, `generateMetadata` untuk tag `title` dan `description`), image optimization, dan routing.
+  - Server-side data fetching hanya digunakan seperlunya jika mutlak dibutuhkan oleh crawler SEO.
+

@@ -81,34 +81,75 @@ Ketika memanggil service di komponen React, **WAJIB** menangani 4 status:
 3. **Empty State**: Jika data array kosong (`data.length === 0`), tampilkan ilustrasi/icon ramah, pesan edukatif, dan tombol aksi (misal: "Reset Filter" atau "Cari Kategori Lain").
 4. **Error State**: Tangkap `ApiError` dari `api-client.ts` dan tampilkan notifikasi atau badge error yang jelas bagi pengguna.
 
-#### Pola Server Component (Direkomendasikan untuk Data Publik/Katalog/SEO):
+#### Pola Utama: Client Component Data Fetching (`'use client'`)
+> **PRINSIP UTAMA**: Prioritaskan pemanggilan data API di sisi client menggunakan hook React (`useEffect`, `useState`). Next.js digunakan untuk routing, tata letak, dan tag SEO.
+
 ```tsx
-// src/app/(public)/aset/page.tsx
+'use client';
+
+import { useState, useEffect } from 'react';
 import { productsApi } from '@/services/api';
-import { ProductGrid } from '@/components/features/products/ProductGrid';
-import { ProductEmptyState } from '@/components/features/products/ProductEmptyState';
+import type { ProductCard } from '@/types/api';
+import { ProductCardItem } from '@/components/features/products/ProductCardItem';
+import { ProductGridSkeleton } from '@/components/features/products/ProductSkeleton';
+import { ApiError } from '@/lib/api-client';
 
-export default async function AsetPage({ searchParams }: { searchParams: Promise<{ [key: string]: string | undefined }> }) {
-  const params = await searchParams;
-  try {
-    const res = await productsApi.getProducts({
-      search: params.q,
-      category: params.kategori,
-      page: params.page ? parseInt(params.page) : 1,
-    });
+export function ProductCatalogSection() {
+  const [products, setProducts] = useState<ProductCard[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-    if (!res.data || res.data.length === 0) {
-      return <ProductEmptyState />;
+  useEffect(() => {
+    async function loadData() {
+      try {
+        setLoading(true);
+        const res = await productsApi.getProducts();
+        setProducts(res.data);
+      } catch (err) {
+        if (err instanceof ApiError) setError(err.message);
+        else setError('Gagal memuat produk.');
+      } finally {
+        setLoading(false);
+      }
     }
+    loadData();
+  }, []);
 
-    return <ProductGrid products={res.data} meta={res.meta} />;
-  } catch (error) {
-    return <div className="p-8 text-center text-red-600">Gagal memuat katalog aset. Silakan coba lagi nanti.</div>;
-  }
+  if (loading) return <ProductGridSkeleton count={8} />;
+  if (error) return <div className="text-red-500 p-4">{error}</div>;
+  if (products.length === 0) return <div>Tidak ada produk ditemukan.</div>;
+
+  return (
+    <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+      {products.map((p) => (
+        <ProductCardItem key={p.id} product={p} />
+      ))}
+    </div>
+  );
 }
 ```
 
-#### Pola Client Component (Untuk Halaman Interaktif / User Login / Keranjang / Booking):
+#### Pola Server Component (Hanya Digunakan Seperlunya untuk Metadata SEO):
+Gunakan fungsi `generateMetadata()` pada halaman Server Component pembungkus untuk menyuntikkan tag `title` & `description` dinamis sebelum memuat Client Component interaktif di dalamnya:
+```tsx
+// src/app/(public)/aset/[slug]/page.tsx
+import { Metadata } from 'next';
+import { ProductDetailClient } from './ProductDetailClient';
+
+// Server-side hanya untuk tag meta SEO jika dibutuhkan
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  return {
+    title: `Detail Fasilitas ${slug} | Lapak Jambi`,
+    description: 'Pesan fasilitas aset daerah Provinsi Jambi secara resmi dan terverifikasi.',
+  };
+}
+
+export default async function ProductDetailPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  return <ProductDetailClient slug={slug} />;
+}
+```
 ```tsx
 'use client';
 

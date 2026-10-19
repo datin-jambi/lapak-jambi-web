@@ -35,8 +35,8 @@ export default function NewsDetailPage() {
         <PageHeader
           title={article.title}
           breadcrumbs={[
-            { label: "Berita", href: "/news" },
-            { label: article.category, href: `/news?category=${article.category}` },
+            { label: "Berita", href: "/berita" },
+            { label: article.category, href: `/berita?category=${article.category}` },
             { label: article.title },
           ]}
         />

@@ -108,6 +108,10 @@ Setiap Agen AI yang menerima tugas baru di repositori ini **WAJIB** mengikuti al
 4. **Desain Bernuansa Premium & Lokal**:
    - Nuansa warna: Dark Walnut Coklat Kayu Jambi + Gold / Emas Songket (telah didefinisikan di `globals.css`).
    - Desain interaktif: Filter chips, date picker, slot badges, card hover animations, modal konfirmasi.
+5. **Prioritaskan Client-Side Data Fetching (Client-First)**:
+   - Seluruh pemanggilan API backend (`productsApi`, `categoriesApi`, `authApi`, dll.) diprioritaskan di sisi client (`'use client'`, `useEffect`, `useState`).
+   - Next.js digunakan terutama untuk optimasi SEO (`metadata` dan `generateMetadata` tag title/description), image optimization, dan routing/layout. Server-side fetching hanya digunakan seperlunya.
+
 
 ---
 

@@ -143,12 +143,24 @@ export async function apiClient<T>(
   }
 
   // Make request
-  let res = await fetch(url.toString(), {
-    ...fetchOptions,
-    headers,
-    body: body instanceof FormData ? body : body ? JSON.stringify(body) : undefined,
-    credentials: 'include', // Always send cookies for refresh token
-  });
+  if (typeof window !== 'undefined') {
+    console.log(`%c[API Client 🌐] ${fetchOptions.method || 'GET'} %c${url.toString()}`, 'color: #d97706; font-weight: bold', 'color: #0f766e');
+  }
+
+  let res: Response;
+  try {
+    res = await fetch(url.toString(), {
+      ...fetchOptions,
+      headers,
+      body: body instanceof FormData ? body : body ? JSON.stringify(body) : undefined,
+      credentials: 'include', // Always send cookies for refresh token
+    });
+  } catch (networkError) {
+    if (typeof window !== 'undefined') {
+      console.error(`[API Client ❌ Network Error] ${url.toString()}`, networkError);
+    }
+    throw networkError;
+  }
 
   // Auto-refresh on 401
   if (res.status === 401 && !isPublic) {
@@ -166,6 +178,14 @@ export async function apiClient<T>(
 
   // Parse response
   const json = await res.json().catch(() => null);
+
+  if (typeof window !== 'undefined') {
+    if (res.ok) {
+      console.log(`%c[API Client ✅ ${res.status}] %c${url.pathname}${url.search}`, 'color: #10b981; font-weight: bold', 'color: #64748b', json);
+    } else {
+      console.warn(`%c[API Client ⚠️ ${res.status}] %c${url.pathname}${url.search}`, 'color: #ef4444; font-weight: bold', 'color: #64748b', json);
+    }
+  }
 
   if (!res.ok) {
     throw new ApiError(
